@@ -109,8 +109,9 @@ async def websocket_endpoint(websocket: WebSocket):
         )
         
         if is_auth_message:
-            token = data.get('token')
-            if token == "test-token-123":  # Match the token from main test
+            # Use the same token verification as the initial check
+            token_from_message = data.get('token')
+            if verify_token(token_from_message):  # Use our verify_token function
                 await websocket.send_json({
                     "status": "authenticated",
                     "type": "system"
@@ -145,7 +146,7 @@ async def websocket_endpoint(websocket: WebSocket):
         if data['type'] == 'chat':
             response = await handle_chat_message(websocket, data)
         else:  # system
-            response = await handle_system_message(data['message'], data)
+            response = await handle_system_message(data.get('message', ''), data)
             
         print(f"Sending response: {response}")
         await websocket.send_json(response)

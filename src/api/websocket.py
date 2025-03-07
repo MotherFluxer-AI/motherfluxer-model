@@ -100,68 +100,75 @@ async def websocket_endpoint(websocket: WebSocket):
     
     print("Authentication successful, accepting connection")
     await websocket.accept()
+    
+    # Track if the user has authenticated via message
+    authenticated_via_message = False
+    
     try:
-        data = await websocket.receive_json()
-        print(f"Received websocket message: {data}")
-        
-        if not isinstance(data, dict):
-            print(f"Invalid message format: {data}")
-            await websocket.send_json({
-                "error": "Invalid message format",
-                "type": "system",
-                "code": 4002
-            })
-            return
+        # Keep connection open and handle multiple messages
+        while True:
+            data = await websocket.receive_json()
+            print(f"Received websocket message: {data}")
             
-        # Handle both auth message formats
-        is_auth_message = (
-            (data.get('type') == 'auth') or  # Main websocket format
-            (data.get('type') == 'system' and data.get('message') == 'auth')  # Simple websocket format
-        )
-        
-        if is_auth_message:
-            # Use the same token verification as the initial check
-            token_from_message = data.get('token')
-            if verify_token(token_from_message):  # Use our verify_token function
+            if not isinstance(data, dict):
+                print(f"Invalid message format: {data}")
                 await websocket.send_json({
-                    "status": "authenticated",
-                    "type": "system"
+                    "error": "Invalid message format",
+                    "type": "system",
+                    "code": 4002
                 })
-            else:
+                continue
+                
+            # Handle both auth message formats
+            is_auth_message = (
+                (data.get('type') == 'auth') or  # Main websocket format
+                (data.get('type') == 'system' and data.get('message') == 'auth')  # Simple websocket format
+            )
+            
+            if is_auth_message:
+                # Use the same token verification as the initial check
+                token_from_message = data.get('token')
+                if verify_token(token_from_message):  # Use our verify_token function
+                    authenticated_via_message = True
+                    await websocket.send_json({
+                        "status": "authenticated",
+                        "type": "system"
+                    })
+                else:
+                    await websocket.send_json({
+                        "status": "error",
+                        "message": "Authentication failed",
+                        "type": "system"
+                    })
+                continue
+                
+            # Regular message handling
+            if 'type' not in data or 'message' not in data:
+                print(f"Invalid message format: {data}")
                 await websocket.send_json({
-                    "status": "error",
-                    "message": "Authentication failed",
-                    "type": "system"
+                    "error": "Invalid message format",
+                    "type": "system",
+                    "code": 4002
                 })
-            return
-            
-        # Regular message handling
-        if 'type' not in data or 'message' not in data:
-            print(f"Invalid message format: {data}")
-            await websocket.send_json({
-                "error": "Invalid message format",
-                "type": "system",
-                "code": 4002
-            })
-            return
-            
-        if data['type'] not in ['chat', 'system']:
-            print(f"Invalid message type: {data['type']}")
-            await websocket.send_json({
-                "error": "Invalid message type",
-                "type": "system",
-                "code": 4003
-            })
-            return
-            
-        if data['type'] == 'chat':
-            response = await handle_chat_message(websocket, data)
-        else:  # system
-            response = await handle_system_message(data.get('message', ''), data)
-            
-        print(f"Sending response: {response}")
-        await websocket.send_json(response)
-            
+                continue
+                
+            if data['type'] not in ['chat', 'system']:
+                print(f"Invalid message type: {data['type']}")
+                await websocket.send_json({
+                    "error": "Invalid message type",
+                    "type": "system",
+                    "code": 4003
+                })
+                continue
+                
+            if data['type'] == 'chat':
+                response = await handle_chat_message(websocket, data)
+            else:  # system
+                response = await handle_system_message(data.get('message', ''), data)
+                
+            print(f"Sending response: {response}")
+            await websocket.send_json(response)
+                
     except json.JSONDecodeError:
         print("JSON decode error")
         await websocket.send_json({
@@ -169,9 +176,9 @@ async def websocket_endpoint(websocket: WebSocket):
             "type": "system",
             "code": 4005
         })
+    except WebSocketDisconnect:
+        print("Client disconnected")
     except Exception as e:
         print(f"Error in websocket: {str(e)}")
-        await websocket.close(code=1000)
-    finally:
         if websocket.client_state.CONNECTED:
-            await websocket.close() 
+            await websocket.close(code=1000) 

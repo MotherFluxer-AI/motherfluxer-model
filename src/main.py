@@ -53,14 +53,7 @@ def get_settings():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    settings = Settings()
-    return {
-        "status": "ok",
-        "version": settings.model_version,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "model_loaded": model_manager.is_ready()
-    }
+    return {"status": "ok", "message": "Server is running"}
 
 @app.websocket("/ws")
 async def websocket_simple_route(websocket: WebSocket):

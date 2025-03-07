@@ -74,8 +74,8 @@
         // The authentication token
         const AUTH_TOKEN = "Xf8e8WNtQ7c9FUODstaS_RsY81gy7Bg83R5P6ro5Nf0";
         
-        // The WebSocket URL
-        const WS_URL = "wss://beeef73badbe-8000.proxy.runpod.net/ws";
+        // The WebSocket URL with token as query parameter
+        const WS_URL = `wss://beeef73badbe-8000.proxy.runpod.net/ws?token=${AUTH_TOKEN}`;
         
         function addLog(message, isError = false) {
             const entry = document.createElement('div');
@@ -91,11 +91,8 @@
             addLog(`Connecting to ${WS_URL}...`);
             
             try {
-                ws = new WebSocket(WS_URL, [], {
-                    headers: {
-                        "Authorization": `Bearer ${AUTH_TOKEN}`
-                    }
-                });
+                // Create WebSocket with token in URL instead of headers
+                ws = new WebSocket(WS_URL);
                 
                 ws.onopen = () => {
                     addLog('WebSocket connected!');
@@ -120,15 +117,19 @@
                 };
                 
                 ws.onerror = (error) => {
-                    addLog(`WebSocket error: ${error}`, true);
+                    // More detailed error logging
+                    addLog(`WebSocket error: ${JSON.stringify(error)}`, true);
+                    console.error("WebSocket error:", error);
                 };
                 
                 ws.onclose = (event) => {
-                    addLog(`WebSocket closed: ${event.code} - ${event.reason}`);
+                    addLog(`WebSocket closed: ${event.code} - ${event.reason || 'No reason provided'}`);
+                    console.log("WebSocket close event:", event);
                     resetButtons();
                 };
             } catch (err) {
                 addLog(`Error creating WebSocket: ${err.message}`, true);
+                console.error("Error creating WebSocket:", err);
                 resetButtons();
             }
         });

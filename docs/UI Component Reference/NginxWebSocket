@@ -1,0 +1,267 @@
+chatsyntax@Chase:~$ ssh -i "motherfluxer-ui-key.pem" ubuntu@3.22.212.98
+Welcome to Ubuntu 24.04.2 LTS (GNU/Linux 6.8.0-1021-aws x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Tue Feb 18 12:56:34 EST 2025
+
+  System load:  0.0                Processes:             114
+  Usage of /:   24.6% of 18.33GB   Users logged in:       0
+  Memory usage: 24%                IPv4 address for enX0: 10.0.1.185
+  Swap usage:   5%
+
+ * Ubuntu Pro delivers the most comprehensive open source security and
+   compliance features.
+
+   https://ubuntu.com/aws/pro
+
+Expanded Security Maintenance for Applications is not enabled.
+
+0 updates can be applied immediately.
+
+Enable ESM Apps to receive additional future security updates.
+See https://ubuntu.com/esm or run: sudo pro status
+
+
+Last login: Mon Feb 17 14:13:33 2025 from 181.80.1.109
+ubuntu@ip-10-0-1-185:~$ sudo cat /etc/nginx/nginx.conf
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+error_log /var/log/nginx/error.log;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+        worker_connections 768;
+        # multi_accept on;
+}
+
+http {
+
+        ##
+        # Basic Settings
+        ##
+
+        sendfile on;
+        tcp_nopush on;
+        types_hash_max_size 2048;
+        # server_tokens off;
+
+        # server_names_hash_bucket_size 64;
+        # server_name_in_redirect off;
+
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        ##
+        # SSL Settings
+        ##
+
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3; # Dropping SSLv3, ref: POODLE
+        ssl_prefer_server_ciphers on;
+
+        ##
+        # Logging Settings
+        ##
+
+        access_log /var/log/nginx/access.log;
+
+        ##
+        # Gzip Settings
+        ##
+
+        gzip on;
+
+        # gzip_vary on;
+        # gzip_proxied any;
+        # gzip_comp_level 6;
+        # gzip_buffers 16 8k;
+        # gzip_http_version 1.1;
+        # gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+        ##
+        # Virtual Host Configs
+        ##
+
+        include /etc/nginx/conf.d/*.conf;
+        include /etc/nginx/sites-enabled/*;
+}
+
+
+#mail {
+#       # See sample authentication script at:
+#       # http://wiki.nginx.org/ImapAuthenticateWithApachePhpScript
+#
+#       # auth_http localhost/auth.php;
+#       # pop3_capabilities "TOP" "USER";
+#       # imap_capabilities "IMAP4rev1" "UIDPLUS";
+#
+#       server {
+#               listen     localhost:110;
+#               protocol   pop3;
+#               proxy      on;
+#       }
+#
+#       server {
+#               listen     localhost:143;
+#               protocol   imap;
+#               proxy      on;
+#       }
+#}
+ubuntu@ip-10-0-1-185:~$ sudo cat /etc/nginx/sites-available/motherfluxer-ui
+# Frontend server block for motherfluxer.ai and www.motherfluxer.ai
+server {
+    server_name motherfluxer.ai www.motherfluxer.ai user.motherfluxer.ai;
+
+    # Frontend application
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # API endpoints
+    location /api {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+
+        # CORS headers
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+        add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        add_header Content-Type text/plain;
+        return 200 'OK';
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/motherfluxer.ai/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/motherfluxer.ai/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+
+
+}
+
+server {
+    if ($host = user.motherfluxer.ai) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = www.motherfluxer.ai) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = motherfluxer.ai) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    server_name motherfluxer.ai www.motherfluxer.ai user.motherfluxer.ai;
+    return 404; # managed by Certbot
+
+
+
+
+
+
+}ubuntu@ip-10-0-1-185:~$ls -l /etc/nginx/sites-enabled//
+total 0
+lrwxrwxrwx 1 root root 42 Feb 13 21:59 motherfluxer-ui -> /etc/nginx/sites-available/motherfluxer-ui
+ubuntu@ip-10-0-1-185:~$ sudo grep -r "proxy_set_header Upgrade" /etc/nginx/
+/etc/nginx/sites-available/motherfluxer:        # proxy_set_header Upgrade $http_upgrade;
+/etc/nginx/sites-available/motherfluxer:        proxy_set_header Upgrade $http_upgrade;
+/etc/nginx/sites-available/motherfluxer-ui:        proxy_set_header Upgrade $http_upgrade;
+/etc/nginx/sites-available/motherfluxer-ui:        proxy_set_header Upgrade $http_upgrade;
+ubuntu@ip-10-0-1-185:~$ sudo cat /etc/nginx/sites-enabled/motherfluxer-ui
+# Frontend server block for motherfluxer.ai and www.motherfluxer.ai
+server {
+    server_name motherfluxer.ai www.motherfluxer.ai user.motherfluxer.ai;
+
+    # Frontend application
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # API endpoints
+    location /api {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+
+        # CORS headers
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+        add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        add_header Content-Type text/plain;
+        return 200 'OK';
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/motherfluxer.ai/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/motherfluxer.ai/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+
+
+}
+
+server {
+    if ($host = user.motherfluxer.ai) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = www.motherfluxer.ai) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = motherfluxer.ai) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    server_name motherfluxer.ai www.motherfluxer.ai user.motherfluxer.ai;
+    return 404; # managed by Certbot
+
+
+
+
+
+
+}ubuntu@ip-10-0-1-185:~$

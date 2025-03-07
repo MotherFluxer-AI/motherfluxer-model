@@ -55,26 +55,28 @@ class ModelManager:
 
         try:
             logger.info(f"Generating response for prompt: {prompt}")
-            # Format prompt according to Phi-2's preferred format
-            formatted_prompt = f"Instruct: {prompt}\nOutput:"
+            
+            # Format prompt with better instructions
+            formatted_prompt = f"""
+You are a helpful AI assistant. Answer the following question accurately and concisely.
+
+Question: {prompt}
+
+Answer:"""
+            
             logger.info(f"Formatted prompt: {formatted_prompt}")
             
             inputs = self.tokenizer(formatted_prompt, return_tensors="pt").to(self.model.device)
             logger.info("Tokenization successful")
             
-            # Set default parameters based on Phi-2's capabilities
+            # Set default parameters
             generation_config = {
-                "max_length": self.settings.max_sequence_length,
+                "max_length": kwargs.get("max_length", self.settings.max_sequence_length),
                 "temperature": kwargs.get("temperature", self.settings.default_temperature),
-                "do_sample": True,  # Enable sampling for more natural responses
+                "do_sample": True,
                 "top_p": kwargs.get("top_p", 0.9),
-                "top_k": kwargs.get("top_k", 50),
-                "pad_token_id": self.tokenizer.eos_token_id
             }
             logger.info(f"Generation config: {generation_config}")
-            
-            # Update with any additional parameters
-            generation_config.update(kwargs)
             
             outputs = self.model.generate(
                 **inputs,
@@ -84,7 +86,14 @@ class ModelManager:
             
             # Extract only the generated response, removing the prompt
             response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            response = response.replace(formatted_prompt, "").strip()
+            
+            # Extract just the answer part
+            if "Answer:" in response:
+                response = response.split("Answer:")[1].strip()
+            else:
+                # If the model didn't follow the format, try to extract anything after the prompt
+                response = response.replace(formatted_prompt, "").strip()
+            
             logger.info(f"Final response: {response}")
             
             return response

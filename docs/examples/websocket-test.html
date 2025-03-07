@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #log {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+            font-family: monospace;
+            background-color: #f5f5f5;
+        }
+        button {
+            padding: 8px 16px;
+            margin-right: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-top: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Test</h1>
+    
+    <div class="controls">
+        <button id="connect">Connect</button>
+        <button id="auth" disabled>Authenticate</button>
+        <button id="disconnect" disabled>Disconnect</button>
+    </div>
+    
+    <div id="log"></div>
+    
+    <div class="input-group">
+        <textarea id="message" placeholder="Type a message to send..." disabled></textarea>
+        <button id="send" disabled>Send Message</button>
+    </div>
+    
+    <script>
+        const log = document.getElementById('log');
+        const connectBtn = document.getElementById('connect');
+        const authBtn = document.getElementById('auth');
+        const disconnectBtn = document.getElementById('disconnect');
+        const sendBtn = document.getElementById('send');
+        const messageInput = document.getElementById('message');
+        
+        let ws = null;
+        
+        // The authentication token
+        const AUTH_TOKEN = "Xf8e8WNtQ7c9FUODstaS_RsY81gy7Bg83R5P6ro5Nf0";
+        
+        // The WebSocket URL
+        const WS_URL = "wss://beeef73badbe-8000.proxy.runpod.net/ws";
+        
+        function addLog(message, isError = false) {
+            const entry = document.createElement('div');
+            entry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            if (isError) {
+                entry.style.color = 'red';
+            }
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        connectBtn.addEventListener('click', () => {
+            addLog(`Connecting to ${WS_URL}...`);
+            
+            try {
+                ws = new WebSocket(WS_URL, [], {
+                    headers: {
+                        "Authorization": `Bearer ${AUTH_TOKEN}`
+                    }
+                });
+                
+                ws.onopen = () => {
+                    addLog('WebSocket connected!');
+                    connectBtn.disabled = true;
+                    authBtn.disabled = false;
+                    disconnectBtn.disabled = false;
+                };
+                
+                ws.onmessage = (event) => {
+                    addLog(`Received: ${event.data}`);
+                    
+                    try {
+                        const response = JSON.parse(event.data);
+                        if (response.type === 'system' && response.status === 'authenticated') {
+                            addLog('Authentication successful!');
+                            sendBtn.disabled = false;
+                            messageInput.disabled = false;
+                        }
+                    } catch (err) {
+                        addLog(`Error parsing response: ${err.message}`, true);
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    addLog(`WebSocket error: ${error}`, true);
+                };
+                
+                ws.onclose = (event) => {
+                    addLog(`WebSocket closed: ${event.code} - ${event.reason}`);
+                    resetButtons();
+                };
+            } catch (err) {
+                addLog(`Error creating WebSocket: ${err.message}`, true);
+                resetButtons();
+            }
+        });
+        
+        authBtn.addEventListener('click', () => {
+            if (!ws) return;
+            
+            const authMessage = {
+                type: 'system',
+                message: 'auth',
+                token: AUTH_TOKEN
+            };
+            
+            addLog(`Sending auth: ${JSON.stringify(authMessage)}`);
+            ws.send(JSON.stringify(authMessage));
+        });
+        
+        sendBtn.addEventListener('click', () => {
+            if (!ws || !messageInput.value.trim()) return;
+            
+            const testMessage = {
+                type: 'chat',
+                message: messageInput.value.trim(),
+                parameters: {
+                    temperature: 0.7,
+                    max_length: 100
+                }
+            };
+            
+            addLog(`Sending message: ${JSON.stringify(testMessage)}`);
+            ws.send(JSON.stringify(testMessage));
+            messageInput.value = '';
+        });
+        
+        disconnectBtn.addEventListener('click', () => {
+            if (!ws) return;
+            
+            ws.close();
+            addLog('Disconnecting...');
+            resetButtons();
+        });
+        
+        function resetButtons() {
+            connectBtn.disabled = false;
+            authBtn.disabled = true;
+            disconnectBtn.disabled = true;
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+            ws = null;
+        }
+    </script>
+</body>
+</html>

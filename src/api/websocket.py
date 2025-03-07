@@ -79,9 +79,15 @@ async def handle_system_message(command: str, data: Dict[str, Any] = None) -> Di
 async def websocket_endpoint(websocket: WebSocket):
     print("\n=== Starting websocket connection ===")
     
+    # Try to get token from header first
     auth_header = websocket.headers.get("authorization")
     token = extract_token_from_header(auth_header)
-    print(f"Auth header: {auth_header}, extracted token: {token}")
+    
+    # If no token in header, try query parameter
+    if not token:
+        token = websocket.query_params.get("token")
+        
+    print(f"Auth header: {auth_header}, query token: {websocket.query_params.get('token')}, extracted token: {token}")
     
     if not token or not verify_token(token):
         print("Initial auth header verification failed")

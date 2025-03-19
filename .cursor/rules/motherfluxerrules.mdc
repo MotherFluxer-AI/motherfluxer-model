@@ -1,0 +1,37 @@
+---
+description: 
+globs: 
+---
+# General rules for MotherFluxer project
+
+- You can @ files here
+- You can use markdown but dont have to
+- Always use functional React components
+- Follow the MotherFluxer project structure from the documentation
+- Format code according to project conventions
+- Use TypeScript for type safety
+
+# Database Conventions
+- Follow the auth_service schema structure
+- Use PostgreSQL best practices for queries
+- Implement proper error handling for database operations
+
+# Security Practices
+- Always use proper JWT authentication
+- Implement rate limiting as defined in the specs
+- Follow AWS security best practices
+
+# React Component Guidelines
+- Use shadcn/ui components when available
+- Only use Tailwind's core utility classes (no arbitrary values)
+- Components should be self-contained and reusable
+
+# Code Quality
+- Implement proper error handling using the defined error classes
+- Follow the established logging patterns
+- Write comprehensive tests for new features
+
+# AWS Infrastructure
+- Follow the defined VPC configuration
+- Use proper IAM roles and permissions
+- Implement proper security group rules

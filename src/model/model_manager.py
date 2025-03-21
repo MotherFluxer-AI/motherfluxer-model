@@ -45,7 +45,8 @@ class ModelManager:
                 self.settings.model.name,
                 **self._model_kwargs,
                 torch_dtype=torch.float16,
-                device_map="auto"
+                device_map="auto",
+                use_flash_attention_2=False
             )
             
             self._is_ready = True

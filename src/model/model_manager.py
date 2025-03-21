@@ -1,6 +1,7 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 import torch
 import logging
+import os
 from ..utils.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -12,11 +13,13 @@ class ModelManager:
         self.tokenizer = None
         self._is_ready = False
         
+        # Set the Hugging Face token in the environment
+        os.environ["HUGGING_FACE_HUB_TOKEN"] = self.settings.auth.huggingface_token
+        
         # Common model initialization parameters
         self._model_kwargs = {
             "revision": self.settings.model.revision,
-            "trust_remote_code": True,
-            "token": self.settings.auth.huggingface_token
+            "trust_remote_code": True
         }
         
         # Default generation parameters

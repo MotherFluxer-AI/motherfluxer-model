@@ -3,7 +3,7 @@ import websockets
 import json
 
 async def test_connection():
-    uri = "ws://localhost:8000/ws?token=0d9faed892236a06ba75a6149e3c0658728450f591a3eddc6cb7b4018c3745cc"
+    uri = "ws://172.24.0.2:8000/ws?token=0d9faed892236a06ba75a6149e3c0658728450f591a3eddc6cb7b4018c3745cc"
     
     try:
         async with websockets.connect(uri) as websocket:

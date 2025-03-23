@@ -134,9 +134,11 @@ async def websocket_endpoint(websocket: WebSocket):
             except WebSocketDisconnect:
                 break
             except Exception as e:
-                if websocket.client_state.CONNECTED:
-                    await websocket.close(code=1000)
+                logger.error(f"Error in websocket connection: {e}")
                 break
     finally:
         if websocket.client_state.CONNECTED:
-            await websocket.close() 
+            try:
+                await websocket.close()
+            except Exception as e:
+                logger.error(f"Error closing websocket: {e}") 

@@ -19,18 +19,11 @@ async def send_message(websocket, message):
     }
     await websocket.send(json.dumps(chat_message))
     logger.info("Message sent, waiting for response...")
-
-async def receive_messages(websocket):
-    while True:
-        try:
-            response = await websocket.recv()
-            logger.info(f"Received: {response}")
-        except websockets.exceptions.ConnectionClosed:
-            logger.info("Connection closed by server")
-            break
-        except Exception as e:
-            logger.error(f"Error receiving message: {e}")
-            break
+    
+    # Wait for and return the response
+    response = await websocket.recv()
+    logger.info(f"Received: {response}")
+    return response
 
 async def test_connection():
     uri = "ws://localhost:8000/ws?token=0d9faed892236a06ba75a6149e3c0658728450f591a3eddc6cb7b4018c3745cc"
@@ -38,9 +31,6 @@ async def test_connection():
     try:
         async with websockets.connect(uri) as websocket:
             logger.info("Connected to WebSocket server")
-            
-            # Start message receiver task
-            receiver_task = asyncio.create_task(receive_messages(websocket))
             
             # Interactive message sending
             while True:
@@ -50,18 +40,15 @@ async def test_connection():
                     if message.lower() == 'quit':
                         break
                     
-                    # Send the message
+                    # Send message and wait for response
                     await send_message(websocket, message)
                     
                 except KeyboardInterrupt:
                     logger.info("Exiting...")
                     break
                 except Exception as e:
-                    logger.error(f"Error sending message: {e}")
+                    logger.error(f"Error: {e}")
                     break
-            
-            # Cancel the receiver task
-            receiver_task.cancel()
             
     except websockets.exceptions.ConnectionClosed:
         logger.info("Connection closed normally")

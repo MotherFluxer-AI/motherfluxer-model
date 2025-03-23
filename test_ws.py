@@ -26,6 +26,11 @@ async def test_connection():
             response = await websocket.recv()
             print(f"Received response: {response}")
             
+            # Keep connection open for a moment to ensure proper closure
+            await asyncio.sleep(1)
+            
+    except websockets.exceptions.ConnectionClosed:
+        print("Connection closed normally")
     except Exception as e:
         print(f"Error: {e}")
 

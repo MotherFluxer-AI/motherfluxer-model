@@ -29,6 +29,7 @@ async function sendMessage(ws, message) {
         ws.send(JSON.stringify(chatMessage));
         logger.info("Message sent, waiting for response...");
 
+        // Set up one-time message handler
         const messageHandler = (data) => {
             ws.removeListener('message', messageHandler);
             const response = data.toString();
@@ -42,16 +43,24 @@ async function sendMessage(ws, message) {
 
 // Main connection function
 async function testConnection() {
+    // Use standard WSS port and include necessary headers
     const uri = "wss://j03eo0e9yqwlsn-644118b1.proxy.runpod.net/ws?token=0d9faed892236a06ba75a6149e3c0658728450f591a3eddc6cb7b4018c3745cc";
     
     try {
         const ws = new WebSocket(uri, {
+            followRedirects: true,
+            handshakeTimeout: 10000,
             headers: {
                 'User-Agent': 'Mozilla/5.0',
+                'Upgrade': 'websocket',
+                'Connection': 'Upgrade',
+                'Sec-WebSocket-Version': '13',
                 'Host': 'j03eo0e9yqwlsn-644118b1.proxy.runpod.net'
-            }
+            },
+            perMessageDeflate: false
         });
 
+        // Add connection event handlers
         ws.on('open', () => {
             logger.info("Connected to WebSocket server");
             
@@ -85,6 +94,13 @@ async function testConnection() {
 
         ws.on('error', (error) => {
             logger.error(`WebSocket error: ${error.message}`);
+            // Don't close on error - let the connection retry
+            if (error.message.includes('502') || error.message.includes('503')) {
+                logger.info("Retrying connection in 2 seconds...");
+                setTimeout(() => testConnection(), 2000);
+            } else {
+                rl.close();
+            }
         });
 
     } catch (error) {
@@ -96,11 +112,11 @@ async function testConnection() {
 // Handle program termination
 process.on('SIGINT', () => {
     logger.info("Program terminated by user");
-    process.exit(0);
+    process.exit();
 });
 
 // Start the connection
 testConnection().catch(error => {
     logger.error(`Fatal error: ${error.message}`);
     process.exit(1);
-}); 
+});

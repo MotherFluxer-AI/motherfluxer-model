@@ -43,7 +43,7 @@ async function sendMessage(ws, message) {
 
 // Main connection function
 async function testConnection() {
-    // Use standard WSS port and include necessary headers for Cloudflare
+    // Use standard WSS port and include necessary headers
     const uri = "wss://j03eo0e9yqwlsn-644118b1.proxy.runpod.net/ws?token=0d9faed892236a06ba75a6149e3c0658728450f591a3eddc6cb7b4018c3745cc";
     
     try {
@@ -55,19 +55,12 @@ async function testConnection() {
                 'Upgrade': 'websocket',
                 'Connection': 'Upgrade',
                 'Sec-WebSocket-Version': '13',
-                'Sec-WebSocket-Extensions': 'permessage-deflate',
-                'Host': 'j03eo0e9yqwlsn-644118b1.proxy.runpod.net',
-                'Origin': 'https://j03eo0e9yqwlsn-644118b1.proxy.runpod.net'
+                'Host': 'j03eo0e9yqwlsn-644118b1.proxy.runpod.net'
             },
-            perMessageDeflate: false,
-            maxPayload: 100 * 1024 * 1024 // 100MB
+            perMessageDeflate: false
         });
 
         // Add connection event handlers
-        ws.on('upgrade', (response) => {
-            logger.info('Connection upgrade successful');
-        });
-
         ws.on('open', () => {
             logger.info("Connected to WebSocket server");
             
@@ -101,7 +94,13 @@ async function testConnection() {
 
         ws.on('error', (error) => {
             logger.error(`WebSocket error: ${error.message}`);
-            rl.close();
+            // Don't close on error - let the connection retry
+            if (error.message.includes('502') || error.message.includes('503')) {
+                logger.info("Retrying connection in 2 seconds...");
+                setTimeout(() => testConnection(), 2000);
+            } else {
+                rl.close();
+            }
         });
 
     } catch (error) {

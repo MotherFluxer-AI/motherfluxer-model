@@ -29,109 +29,108 @@ async function sendMessage(ws, message) {
         ws.send(JSON.stringify(chatMessage));
         logger.info("Message sent, waiting for response...");
 
-        // Set up one-time message handler with timeout
         const messageHandler = (data) => {
-            clearTimeout(timeout);
-            ws.removeListener('message', messageHandler);
-            const response = data.toString();
-            logger.info(`Received: ${response}`);
-            resolve(response);
+            const response = JSON.parse(data.toString());
+            // Only resolve for non-system messages
+            if (response.type !== 'system') {
+                ws.removeListener('message', messageHandler);
+                logger.info(`Received: ${data.toString()}`);
+                resolve(response);
+            } else {
+                logger.debug(`System message: ${data.toString()}`);
+            }
         };
-
-        // Add timeout to prevent hanging
-        const timeout = setTimeout(() => {
-            ws.removeListener('message', messageHandler);
-            reject(new Error('Response timeout'));
-        }, 30000);
 
         ws.on('message', messageHandler);
     });
 }
 
-// Function to create WebSocket connection
-function createWebSocket() {
-    const uri = "wss://j03eo0e9yqwlsn-644118b1.proxy.runpod.net/ws?token=0d9faed892236a06ba75a6149e3c0658728450f591a3eddc6cb7b4018c3745cc";
-    
-    const ws = new WebSocket(uri, {
-        followRedirects: true,
-        handshakeTimeout: 10000,
-        headers: {
-            'User-Agent': 'Mozilla/5.0',
-            'Upgrade': 'websocket',
-            'Connection': 'Upgrade',
-            'Sec-WebSocket-Version': '13',
-            'Host': 'j03eo0e9yqwlsn-644118b1.proxy.runpod.net'
-        },
-        perMessageDeflate: false
-    });
+// Function to authenticate with the server
+async function authenticate(ws, token) {
+    return new Promise((resolve, reject) => {
+        const authMessage = {
+            type: "system",
+            message: "auth",
+            token: token
+        };
 
-    return ws;
+        ws.send(JSON.stringify(authMessage));
+        logger.info("Sent authentication message");
+
+        const authHandler = (data) => {
+            const response = JSON.parse(data.toString());
+            if (response.type === 'system') {
+                ws.removeListener('message', authHandler);
+                if (response.status === 'authenticated') {
+                    logger.info("Authentication successful");
+                    resolve(true);
+                } else {
+                    logger.error("Authentication failed");
+                    reject(new Error("Authentication failed"));
+                }
+            }
+        };
+
+        ws.on('message', authHandler);
+    });
 }
 
 // Main connection function
 async function testConnection() {
-    let ws = null;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 3;
+    const token = "0d9faed892236a06ba75a6149e3c0658728450f591a3eddc6cb7b4018c3745cc";
+    const uri = `wss://j03eo0e9yqwlsn-644118b1.proxy.runpod.net/ws?token=${token}`;
     
-    const connect = () => {
-        if (reconnectAttempts >= maxReconnectAttempts) {
-            logger.error("Max reconnection attempts reached");
-            process.exit(1);
-        }
+    try {
+        const ws = new WebSocket(uri);
 
-        ws = createWebSocket();
-
-        ws.on('open', () => {
+        ws.on('open', async () => {
             logger.info("Connected to WebSocket server");
-            reconnectAttempts = 0; // Reset counter on successful connection
             
-            // Start interactive message loop
-            const askQuestion = () => {
-                rl.question('\nEnter message (or "quit" to exit): ', async (message) => {
-                    if (message.toLowerCase() === 'quit') {
-                        ws.close(1000, "User requested disconnect");
-                        rl.close();
-                        return;
-                    }
-
-                    try {
-                        await sendMessage(ws, message);
-                        askQuestion(); // Ask for next message after receiving response
-                    } catch (error) {
-                        logger.error(`Error: ${error.message}`);
-                        if (ws.readyState === WebSocket.OPEN) {
-                            ws.close(1000, "Error in message handling");
+            try {
+                // Authenticate first
+                await authenticate(ws, token);
+                
+                // Start interactive message loop
+                const askQuestion = () => {
+                    rl.question('\nEnter message (or "quit" to exit): ', async (message) => {
+                        if (message.toLowerCase() === 'quit') {
+                            ws.close(1000, "User requested disconnect");
+                            rl.close();
+                            return;
                         }
-                        reconnectAttempts++;
-                        setTimeout(connect, 2000);
-                    }
-                });
-            };
 
-            askQuestion();
-        });
+                        try {
+                            await sendMessage(ws, message);
+                            askQuestion(); // Ask for next message after receiving response
+                        } catch (error) {
+                            logger.error(`Error sending message: ${error.message}`);
+                            ws.close(1000, "Error in message handling");
+                            rl.close();
+                        }
+                    });
+                };
 
-        ws.on('close', (code, reason) => {
-            logger.info(`Connection closed: ${code} - ${reason}`);
-            if (code !== 1000) { // If not clean close
-                reconnectAttempts++;
-                setTimeout(connect, 2000);
-            } else {
+                askQuestion();
+            } catch (error) {
+                logger.error(`Authentication error: ${error.message}`);
+                ws.close(1008, "Authentication failed");
                 rl.close();
             }
         });
 
+        ws.on('close', (code, reason) => {
+            logger.info(`Connection closed: ${code} - ${reason}`);
+            rl.close();
+        });
+
         ws.on('error', (error) => {
             logger.error(`WebSocket error: ${error.message}`);
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.close(1000, "Error occurred");
-            }
         });
-    };
 
-    // Start initial connection
-    connect();
+    } catch (error) {
+        logger.error(`Connection error: ${error.message}`);
+        rl.close();
+    }
 }
 
 // Handle program termination
